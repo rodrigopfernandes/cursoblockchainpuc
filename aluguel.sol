@@ -30,6 +30,10 @@ contract Aluguel
     
     function reajustaAluguel(uint256 percentualReajuste) public 
     {
+        if (percentualReajuste > 20)
+        {
+            percentualReajuste = 20;
+        }
         uint256 valorDoAcrescimo = 0;
         valorDoAcrescimo = ((valor*percentualReajuste)/100);
         valor = valor + valorDoAcrescimo;
@@ -39,5 +43,16 @@ contract Aluguel
     {
         valor = valorCerto;
     }
+    
+    function aplicaMulta(uint256 mesesRestantes, uint256 percentual) public
+    {
+        require (mesesRestantes<30, "Período de contrato inválido");
+        for (uint i=1; i<mesesRestantes; i++)
+        {
+            valor = valor+((valor*percentual)/100);
+        }
+        
+    }
+        
     
 }   

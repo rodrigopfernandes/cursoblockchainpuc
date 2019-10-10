@@ -2,18 +2,18 @@ pragma solidity ^0.5.12;
 
 contract Mutuo
 {
-string mutuante;
-uint anosMutuante; 
-string mutuario;
-uint anosMutuario;
-uint valorMutuado;
-uint taxaJurosRemuneratorios;
-uint prazo;
-uint jurosRemuneratorios;
-uint multa;
-uint taxaJurosMoratorios;
-uint saldoDevedor;
-uint atraso;
+    string mutuante;
+    uint anosMutuante; 
+    string mutuario;
+    uint anosMutuario;
+    uint valorMutuado;
+    uint taxaJurosRemuneratorios;
+    uint prazo;
+    uint jurosRemuneratorios;
+    uint multa;
+    uint taxaJurosMoratorios;
+    uint saldoDevedor;
+    uint atraso;
 
     constructor (string memory nomeMutuante, uint idadeMutuante, string memory nomeMutuario, uint idadeMutuario, uint valor,
     uint percentualJuros, uint prazoEmMeses, uint percentualMulta, uint percentualMora) public 

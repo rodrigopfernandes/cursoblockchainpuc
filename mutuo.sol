@@ -1,4 +1,4 @@
-pragma solidity ^0.5.12;
+pragma solidity 0.5.12;
 
 contract Mutuo
 {
@@ -15,8 +15,17 @@ contract Mutuo
     uint saldoDevedor;
     uint atraso;
 
-    constructor (string memory nomeMutuante, uint idadeMutuante, string memory nomeMutuario, uint idadeMutuario, uint valor,
-    uint percentualJuros, uint prazoEmMeses, uint percentualMulta, uint percentualMora) public 
+    constructor 
+    (string memory nomeMutuante,
+    uint idadeMutuante,
+    string memory nomeMutuario,
+    uint idadeMutuario,
+    uint valor,
+    uint percentualJuros,
+    uint prazoEmMeses,
+    uint percentualMulta,
+    uint percentualMora) 
+    public 
     {
         require (idadeMutuante >= 16 && idadeMutuario >= 16, "Ambas as partes devem ser capazes");
         mutuante = nomeMutuante;
@@ -34,10 +43,12 @@ contract Mutuo
     
     function totalDevido (uint mesesEmAtraso) public view returns (uint)
     {
-        if (mesesEmAtraso > 0) {
-            return saldoDevedor + multa + (((saldoDevedor * taxaJurosMoratorios)/100)*mesesEmAtraso);
+        if (mesesEmAtraso > 0)
+        {
+            return saldoDevedor + multa + (((saldoDevedor * taxaJurosMoratorios)/100) * mesesEmAtraso);
         }
-        if (mesesEmAtraso == 0) {
+            else
+        {
             return saldoDevedor;
         }
     }
@@ -49,27 +60,35 @@ contract Mutuo
     
     function pagamento(uint valorPagamento, uint mesesEmAtraso) public returns (string memory)
     {
-        if (mesesEmAtraso > 0 && valorPagamento <= saldoDevedor + multa + ((saldoDevedor * taxaJurosMoratorios)/100) * mesesEmAtraso &&
-        atraso < 1) {
+        if (mesesEmAtraso > 0 && valorPagamento <= 
+            saldoDevedor + multa + ((saldoDevedor * taxaJurosMoratorios)/100) * mesesEmAtraso &&
+            atraso < 1) 
+        {
             saldoDevedor = (saldoDevedor + multa + (((saldoDevedor * taxaJurosMoratorios)/100)*mesesEmAtraso)) - valorPagamento;
             atraso++;
         }
         
-        if (mesesEmAtraso > 0 && valorPagamento <= saldoDevedor + multa + ((saldoDevedor * taxaJurosMoratorios)/100) * mesesEmAtraso &&
-        atraso >= 1) {
+        else if (mesesEmAtraso > 0 && valorPagamento <= 
+        saldoDevedor + multa + ((saldoDevedor * taxaJurosMoratorios)/100) * mesesEmAtraso &&
+        atraso >= 1) 
+        {
             saldoDevedor = (saldoDevedor + ((saldoDevedor * taxaJurosMoratorios)/100)*mesesEmAtraso) - valorPagamento;
         }
         
-        if (mesesEmAtraso == 0 && valorPagamento <= saldoDevedor) {
+        else if (mesesEmAtraso == 0 && valorPagamento <= saldoDevedor) 
+        {
             saldoDevedor = saldoDevedor - valorPagamento;
         }
         
-        if (mesesEmAtraso > 0 && valorPagamento > saldoDevedor + multa + ((saldoDevedor * taxaJurosMoratorios)/100)*mesesEmAtraso) {
+        else if (mesesEmAtraso > 0 && valorPagamento > 
+        saldoDevedor + multa + ((saldoDevedor * taxaJurosMoratorios)/100)*mesesEmAtraso) 
+        {
             string memory pagamentoMaior = "O valor de pagamento excede o valor devido";
             return pagamentoMaior;
         }
         
-        if (mesesEmAtraso == 0 && valorPagamento > saldoDevedor) {
+        else if (mesesEmAtraso == 0 && valorPagamento > saldoDevedor)
+        {
             string memory pagamentoMaior = "O valor de pagamento excede o valor devido";
             return pagamentoMaior;
         }

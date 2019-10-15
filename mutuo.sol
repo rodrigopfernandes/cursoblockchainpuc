@@ -2,121 +2,123 @@ pragma solidity 0.5.12;
 
 contract Mutuo
 {
+    address payable contrato;
     string mutuante;
-    uint anosMutuante; 
+    uint anosMutuante;
+    address payable carteiraMutuante;
     string mutuario;
     uint anosMutuario;
+    address payable carteiraMutuario;
+    address payable carteiraCaucao;
     uint valorMutuado;
     uint taxaJurosRemuneratorios;
     uint prazo;
     uint jurosRemuneratorios;
     uint multa;
     uint taxaJurosMoratorios;
+    uint caucao;
     uint saldoDevedor;
+    uint totalJuros;
     uint atraso;
-
-    constructor 
+    
+    constructor
     (string memory nomeMutuante,
     uint idadeMutuante,
+    address payable contaMutuante,
     string memory nomeMutuario,
     uint idadeMutuario,
-    uint valor,
+    address payable contaMutuario,
     uint percentualJuros,
     uint prazoEmMeses,
+    uint percentualCaucao,
     uint percentualMulta,
     uint percentualMora) 
-    public 
+    public payable
     {
-        require (idadeMutuante >= 16 && idadeMutuario >= 16, "Ambas as partes devem ser capazes");
+        require (idadeMutuante >= 16 && idadeMutuario >= 16 && msg.value > 0 && contaMutuante == msg.sender,
+        "Ambas as partes devem ser capazes e contrato deve ser implantado pelo mutuante com o valor emprestado");
         mutuante = nomeMutuante;
         anosMutuante = idadeMutuante;
+        carteiraMutuante = contaMutuante;
         mutuario = nomeMutuario;
         anosMutuario = idadeMutuario;
-        valorMutuado = valor;
+        carteiraMutuario = contaMutuario; 
+        valorMutuado = msg.value;
         taxaJurosRemuneratorios = percentualJuros;
         prazo = prazoEmMeses;
-        jurosRemuneratorios = ((valor * percentualJuros) / 100) * prazoEmMeses;
-        multa = valor/percentualMulta;
+        multa = msg.value/percentualMulta;
         taxaJurosMoratorios = percentualMora;
-        saldoDevedor = valorMutuado + jurosRemuneratorios; 
+        caucao = ((msg.value * percentualCaucao) / 100);
+        jurosRemuneratorios = ((msg.value * percentualJuros) / 100) * prazoEmMeses;
+        saldoDevedor = msg.value + jurosRemuneratorios;
+        totalJuros = jurosRemuneratorios;
+        
+        if (percentualCaucao == 0)
+        {
+            carteiraMutuario.transfer(msg.value);
+        }
+    }
+    
+    function valorCaucao () public view returns (uint)
+    {
+        return caucao;
+    }
+    
+    function depositarCaucao () public payable
+    {
+        require (msg.value == caucao, "Valor da caução deve ser exatamente o valor estipulado no lançamento do contrato");
+        carteiraCaucao = msg.sender;
     }
     
     function totalDevido (uint mesesEmAtraso) public view returns (uint)
     {
         if (mesesEmAtraso > 0)
         {
-            return saldoDevedor + multa + (((saldoDevedor * taxaJurosMoratorios)/100) * mesesEmAtraso);
+             return (mesesEmAtraso * (((valorMutuado * taxaJurosRemuneratorios) / 100) + ((valorMutuado * taxaJurosMoratorios) / 100))) + multa - caucao;
         }
-            else
+        
+        else
         {
             return saldoDevedor;
         }
     }
     
-    function totalJuros () public view returns (uint)
+    function jurosDevidos (uint mesesEmAtraso) public view returns (uint)
     {
-        return jurosRemuneratorios;
-    }
-    
-    function pagamento(uint valorPagamento, uint mesesEmAtraso) public returns (string memory)
-    {
-        if (mesesEmAtraso > 0 && valorPagamento <= 
-            saldoDevedor + multa + ((saldoDevedor * taxaJurosMoratorios)/100) * mesesEmAtraso &&
-            atraso < 1) 
+        if (mesesEmAtraso == 0) 
         {
-            saldoDevedor = (saldoDevedor + multa + (((saldoDevedor * taxaJurosMoratorios)/100)*mesesEmAtraso)) - valorPagamento;
-            atraso++;
+            return jurosRemuneratorios;
         }
         
-        else if (mesesEmAtraso > 0 && valorPagamento <= 
-        saldoDevedor + multa + ((saldoDevedor * taxaJurosMoratorios)/100) * mesesEmAtraso &&
-        atraso >= 1) 
+        else
         {
-            saldoDevedor = (saldoDevedor + ((saldoDevedor * taxaJurosMoratorios)/100)*mesesEmAtraso) - valorPagamento;
+            return totalJuros;
         }
         
-        else if (mesesEmAtraso == 0 && valorPagamento <= saldoDevedor) 
+    }
+    
+    function pagamento(uint mesesEmAtraso) public payable returns (string memory)
+    {
+        if (mesesEmAtraso == 0)
         {
-            saldoDevedor = saldoDevedor - valorPagamento;
+            require (msg.value == saldoDevedor, "Pagamento deve ser exatamente o valor devido");
+            saldoDevedor = saldoDevedor - msg.value;
+            carteiraMutuante.transfer(msg.value);
+            carteiraCaucao.transfer(address(this).balance);
         }
         
-        else if (mesesEmAtraso > 0 && valorPagamento > 
-        saldoDevedor + multa + ((saldoDevedor * taxaJurosMoratorios)/100)*mesesEmAtraso) 
+        else
         {
-            string memory pagamentoMaior = "O valor de pagamento excede o valor devido";
-            return pagamentoMaior;
+            for (uint i = 0; i < mesesEmAtraso; i++ )
+            {
+                saldoDevedor += ((valorMutuado * taxaJurosRemuneratorios) / 100) + ((valorMutuado * taxaJurosMoratorios) / 100);
+            }
+            
+            saldoDevedor += multa - caucao;
+            require (msg.value == saldoDevedor, "Pagamento deve ser exatamente o valor devido");
+            saldoDevedor -= msg.value;
+            carteiraMutuante.transfer(msg.value + address(this).balance);
         }
         
-        else if (mesesEmAtraso == 0 && valorPagamento > saldoDevedor)
-        {
-            string memory pagamentoMaior = "O valor de pagamento excede o valor devido";
-            return pagamentoMaior;
-        }
     }
-    
-    /*
-    function pagamentoPrazo(uint valorPagamento) public returns (string memory)
-    {
-        if (valorPagamento > saldoDevedor) {
-            string memory pagamentoMaior = "O valor pago excede o valor devido";
-            return pagamentoMaior;
-        }
-        else saldoDevedor = saldoDevedor - valorPagamento;
-    }
-    
-    function pagamentoForaPrazo(uint valorPagamentoForaPrazo, uint mesesEmAtraso) public returns (string memory)
-    {
-        if (valorPagamentoForaPrazo > saldoDevedor + multa + (taxaJurosMoratorios * mesesEmAtraso * saldoDevedor)) {
-            string memory pagamentoMaior = "O valor pago excede o valor devido";
-            return pagamentoMaior;
-        }
-        else saldoDevedor = saldoDevedor - valorPagamentoForaPrazo;
-    }
-    
-    function aplicaMulta(uint mesesEmAtraso) public
-    {
-        require (mesesEmAtraso > 1);
-        saldoDevedor = saldoDevedor + multa + (taxaJurosMoratorios * mesesEmAtraso * saldoDevedor);
-    }
-    */
 }

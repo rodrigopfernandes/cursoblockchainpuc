@@ -2,54 +2,45 @@ pragma solidity 0.5.12;
 
 contract Mutuo
 {
-    address payable contrato;
-    string mutuante;
-    uint anosMutuante;
     address payable carteiraMutuante;
-    string mutuario;
-    uint anosMutuario;
     address payable carteiraMutuario;
     address payable carteiraCaucao;
     uint valorMutuado;
     uint taxaJurosRemuneratorios;
-    uint prazo;
+    uint vencimento;
+    uint periodoContratado;
     uint jurosRemuneratorios;
     uint multa;
     uint taxaJurosMoratorios;
     uint caucao;
     uint saldoDevedor;
     uint totalJuros;
+    bool pago;
     uint atraso;
+    uint constant segundosMes = 2592000;
     
     constructor
-    (string memory nomeMutuante,
-    uint idadeMutuante,
-    address payable contaMutuante,
-    string memory nomeMutuario,
-    uint idadeMutuario,
+    (address payable contaMutuante,
     address payable contaMutuario,
-    uint percentualJuros,
-    uint prazoEmMeses,
+    uint percentualJurosMes,
+    uint timestampVencimento,
     uint percentualCaucao,
     uint percentualMulta,
     uint percentualMora) 
     public payable
     {
-        require (idadeMutuante >= 16 && idadeMutuario >= 16 && msg.value > 0 && contaMutuante == msg.sender,
-        "Ambas as partes devem ser capazes e contrato deve ser implantado pelo mutuante com o valor emprestado");
-        mutuante = nomeMutuante;
-        anosMutuante = idadeMutuante;
+        require (msg.value > 0 && contaMutuante == msg.sender,
+        "Contrato deve ser publicado pelo mutuante com o valor emprestado");
         carteiraMutuante = contaMutuante;
-        mutuario = nomeMutuario;
-        anosMutuario = idadeMutuario;
         carteiraMutuario = contaMutuario; 
         valorMutuado = msg.value;
-        taxaJurosRemuneratorios = percentualJuros;
-        prazo = prazoEmMeses;
-        multa = msg.value/percentualMulta;
+        taxaJurosRemuneratorios = percentualJurosMes;
+        vencimento = timestampVencimento;
+        multa = msg.value / percentualMulta;
         taxaJurosMoratorios = percentualMora;
         caucao = ((msg.value * percentualCaucao) / 100);
-        jurosRemuneratorios = ((msg.value * percentualJuros) / 100) * prazoEmMeses;
+        periodoContratado = timestampVencimento - now;
+        jurosRemuneratorios = (msg.value * ((percentualJurosMes / 2592000) / 100)) * periodoContratado;
         saldoDevedor = msg.value + jurosRemuneratorios;
         totalJuros = jurosRemuneratorios;
         
@@ -66,15 +57,19 @@ contract Mutuo
     
     function depositarCaucao () public payable
     {
-        require (msg.value == caucao, "Valor da caução deve ser exatamente o valor estipulado no lançamento do contrato");
+        require (msg.value == caucao,
+        "Valor da caução deve ser exatamente o valor estipulado na publicação do contrato");
+        carteiraMutuario.transfer(address(this).balance - msg.value);
         carteiraCaucao = msg.sender;
+
     }
     
-    function totalDevido (uint mesesEmAtraso) public view returns (uint)
+    function calculaTotalDevido () public view returns (uint)
     {
-        if (mesesEmAtraso > 0)
+        if (now > vencimento)
         {
-             return (mesesEmAtraso * (((valorMutuado * taxaJurosRemuneratorios) / 100) + ((valorMutuado * taxaJurosMoratorios) / 100))) + multa - caucao;
+            return saldoDevedor + ((now - vencimento) * (valorMutuado * (taxaJurosRemuneratorios / 2592000) / 100) *
+            (valorMutuado * (taxaJurosMoratorios / 2592000) / 100)) + multa - caucao;
         }
         
         else
@@ -83,9 +78,9 @@ contract Mutuo
         }
     }
     
-    function jurosDevidos (uint mesesEmAtraso) public view returns (uint)
+    function jurosDevidos () public view returns (uint)
     {
-        if (mesesEmAtraso == 0) 
+        if (now < vencimento) 
         {
             return jurosRemuneratorios;
         }
@@ -97,28 +92,36 @@ contract Mutuo
         
     }
     
-    function pagamento(uint mesesEmAtraso) public payable returns (string memory)
+    function pagamento() public payable
     {
-        if (mesesEmAtraso == 0)
+        if (now <= vencimento)
         {
             require (msg.value == saldoDevedor, "Pagamento deve ser exatamente o valor devido");
-            saldoDevedor = saldoDevedor - msg.value;
+            saldoDevedor -= msg.value;
             carteiraMutuante.transfer(msg.value);
             carteiraCaucao.transfer(address(this).balance);
+            pago = true;
         }
         
         else
         {
-            for (uint i = 0; i < mesesEmAtraso; i++ )
+            for (uint i = 0; i < periodoContratado; i++ )
             {
-                saldoDevedor += ((valorMutuado * taxaJurosRemuneratorios) / 100) + ((valorMutuado * taxaJurosMoratorios) / 100);
+                saldoDevedor += (valorMutuado * (taxaJurosRemuneratorios  / 2592000) / 100) +
+                (valorMutuado * (taxaJurosMoratorios / 2592000) / 100);
             }
             
             saldoDevedor += multa - caucao;
             require (msg.value == saldoDevedor, "Pagamento deve ser exatamente o valor devido");
             saldoDevedor -= msg.value;
-            carteiraMutuante.transfer(msg.value + address(this).balance);
+            carteiraMutuante.transfer(address(this).balance);
+            pago = true;
         }
         
+    }
+    
+    function conferirPagamento () public view returns (bool)
+    {
+        return pago;
     }
 }
